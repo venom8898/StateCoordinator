@@ -1,0 +1,11 @@
+{
+  "display_name": "StateCoordinator",
+  "loading_order": 1,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "author": "venom889",
+  "version": "0.0.1,
+  "homePage": "https://github.com/venom8898/StateCoordinator.git",
+  "auto_update": true
+}
