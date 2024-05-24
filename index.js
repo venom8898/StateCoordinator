@@ -14,6 +14,7 @@ console.log('StateCoordinator: Extension URL', extension_url);
 
 let states = {};
 let activeStates = {};
+let customState = ''; // To store the custom state prompt
 
 // Load the states configuration
 async function loadStatesConfig() {
@@ -61,11 +62,13 @@ async function onStateCoordinatorIntercept(chat) {
     // Check if the character is currently in any states and should be taken out
     for (let state of currentStates) {
         const stateConfig = states[state];
-        const keywordsOut = stateConfig.keywords_out;
+        const keywordsOut = stateConfig ? stateConfig.keywords_out : [];
         for (let keyword of keywordsOut) {
             if (latestUserMessage.includes(keyword)) {
                 modifiedMessage = modifiedMessage.replace(keyword, '');
-                statePrompt += `${stateConfig.message_out}\n`;
+                if (state !== 'CustomState') {
+                    statePrompt += `${stateConfig.message_out}\n`;
+                }
                 statesToRemove.add(state);
                 stateChanged = true;
                 console.log(`StateCoordinator: Character ${characterId} exited state ${state}`);
@@ -77,6 +80,9 @@ async function onStateCoordinatorIntercept(chat) {
     // Remove states marked for removal
     for (let state of statesToRemove) {
         currentStates.delete(state);
+        if (state === 'CustomState') {
+            customState = ''; // Clear custom state
+        }
     }
 
     // Check for keywords to bring the character into new states
@@ -96,6 +102,28 @@ async function onStateCoordinatorIntercept(chat) {
         }
     }
 
+    // Check for custom state keyword
+    const customStateRegex = /--(.*?)--/;
+    if (latestUserMessage.includes('customstate')) {
+        const match = latestUserMessage.match(customStateRegex);
+        if (match && match[1]) {
+            modifiedMessage = modifiedMessage.replace('customstate', '').replace(match[0], '');
+            customState = match[1].trim();
+            currentStates.add('CustomState');
+            stateChanged = true;
+            console.log(`StateCoordinator: Character ${characterId} entered CustomState with custom prompt: ${customState}`);
+        }
+    }
+
+    // Check for custom state exit keyword
+    if (latestUserMessage.includes('nocustomstate')) {
+        modifiedMessage = modifiedMessage.replace('nocustomstate', '');
+        currentStates.delete('CustomState');
+        customState = '';
+        stateChanged = true;
+        console.log(`StateCoordinator: Character ${characterId} exited CustomState`);
+    }
+
     // Add states marked for addition
     for (let state of statesToAdd) {
         currentStates.add(state);
@@ -111,8 +139,12 @@ async function onStateCoordinatorIntercept(chat) {
     // Construct the final state prompt for all current states
     let finalStatePrompt = '';
     for (let state of currentStates) {
-        const stateConfig = states[state];
-        finalStatePrompt += `${stateConfig.message_in}\n`;
+        if (state === 'CustomState') {
+            finalStatePrompt += `${customState}\n`;
+        } else {
+            const stateConfig = states[state];
+            finalStatePrompt += `${stateConfig.message_in}\n`;
+        }
     }
 
     // Always update the system prompt with the current states
