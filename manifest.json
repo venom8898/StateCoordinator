@@ -4,8 +4,10 @@
   "requires": [],
   "optional": [],
   "js": "index.js",
-  "author": "venom889",
+  "css": "",
+  "author": "Your Name",
   "version": "0.0.1",
-  "homePage": "https://github.com/venom8898/StateCoordinator.git",
+  "homePage": "https://github.com/yourusername/StateCoordinator",
+  "generate_interceptor": "StateCoordinator_Intercept",
   "auto_update": true
 }
