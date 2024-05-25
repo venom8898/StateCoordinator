@@ -1,28 +1,27 @@
-import { setExtensionPrompt, extension_prompt_types, extension_prompt_roles } from "../../../../script.js";
-import { getContext } from "../../../extensions.js";
+import { setExtensionPrompt, extension_prompt_types, extension_prompt_roles, eventSource, event_types } from "../../../../script.js";
+import { getContext, extension_settings } from "../../../extensions.js";
+import { saveSettingsDebounced } from "../../../../script.js";
 
+const extensionName = "StateCoordinator";
 const extensionPromptMarker = '___StateCoordinator___';
-const extensionPromptRole = extension_prompt_roles.SYSTEM;  // Setting the role to 'system'
-const extensionPromptPosition = extension_prompt_types.BEFORE_PROMPT;  // Position for the system prompt
-const extensionPromptDepth = 1;  // Depth can be adjusted as needed
+const extensionPromptRole = extension_prompt_roles.SYSTEM;
+const extensionPromptPosition = extension_prompt_types.BEFORE_PROMPT;
+const extensionPromptDepth = 1;
 
 console.log('StateCoordinator: Launched');
 
-const url = window.location.href;
-const extension_url = url + "scripts/extensions/third-party/StateCoordinator/";
-console.log('StateCoordinator: Extension URL', extension_url);
-
 let states = {};
-let activeStates = {};
-let customState = ''; // To store the custom state prompt
+let activeStates = new Map(); // To store states for each character
+let customStates = {}; // To store custom states per character
+let currentCharacterId = null; // To store the currently selected character ID
 
 // Load the states configuration
 async function loadStatesConfig() {
     try {
-        const response = await fetch(extension_url + 'states.json');
+        const response = await fetch('scripts/extensions/third-party/StateCoordinator/states.json');
         const statesData = await response.json();
         for (let state of statesData.states) {
-            const stateResponse = await fetch(extension_url + `${state}.json`);
+            const stateResponse = await fetch(`scripts/extensions/third-party/StateCoordinator/states/${state}.json`);
             states[state] = await stateResponse.json();
         }
         console.log("StateCoordinator: Loaded states configuration", states);
@@ -31,18 +30,58 @@ async function loadStatesConfig() {
     }
 }
 
+// Load the states from the extension settings
+function loadMemory() {
+    const memoryData = extension_settings[extensionName] || {};
+    activeStates = new Map(Object.entries(memoryData.activeStates || {}).map(([key, value]) => [key, new Set(value)]));
+    customStates = memoryData.customStates || {};
+    console.log("StateCoordinator: Loaded memory", memoryData);
+}
+
+// Save the states to the extension settings
+function saveMemory() {
+    const memoryData = {
+        activeStates: Object.fromEntries(Array.from(activeStates.entries()).map(([key, value]) => [key, Array.from(value)])),
+        customStates: customStates
+    };
+    extension_settings[extensionName] = memoryData;
+    saveSettingsDebounced();
+    console.log("StateCoordinator: Saved memory", memoryData);
+}
+
+// Update the system prompt with the current states for the selected character
+function updateSystemPromptForCharacter(characterId) {
+    let currentStates = activeStates.get(characterId) || new Set();
+    let finalStatePrompt = '';
+
+    for (let state of currentStates) {
+        if (state === 'CustomState') {
+            finalStatePrompt += `${customStates[characterId]}\n`;
+        } else {
+            const stateConfig = states[state];
+            finalStatePrompt += `${stateConfig.message_in}\n`;
+        }
+    }
+
+    if (finalStatePrompt.trim()) {
+        console.log(`StateCoordinator: Injected system prompt: \n${finalStatePrompt.trim()}`);
+        setExtensionPrompt(extensionPromptMarker, finalStatePrompt.trim(), extensionPromptPosition, extensionPromptDepth, false, extensionPromptRole);
+    }
+
+    console.log(`StateCoordinator: Current states for character ${characterId}:`, Array.from(currentStates));
+}
+
 async function onStateCoordinatorIntercept(chat) {
-    // Retrieve application context, including chat logs and participant info.
-    const context = getContext();
+    if (!currentCharacterId) {
+        console.log('StateCoordinator: No valid character ID found.');
+        return;
+    }
 
-    // Find the latest user message and character ID
+    // Find the latest user message
     let latestUserMessage = '';
-    let characterId = '';
-
     for (let message of chat.slice().reverse()) {
         if (message.is_user) {
             latestUserMessage = message.mes;
-            characterId = message.cid;
             break;
         }
     }
@@ -52,7 +91,7 @@ async function onStateCoordinatorIntercept(chat) {
         return;
     }
 
-    let currentStates = activeStates[characterId] || new Set();
+    let currentStates = activeStates.get(currentCharacterId) || new Set();
     let modifiedMessage = latestUserMessage;
     let stateChanged = false;
     let statePrompt = '';
@@ -71,7 +110,7 @@ async function onStateCoordinatorIntercept(chat) {
                 }
                 statesToRemove.add(state);
                 stateChanged = true;
-                console.log(`StateCoordinator: Character ${characterId} exited state ${state}`);
+                console.log(`StateCoordinator: Character ${currentCharacterId} exited state ${state}`);
                 break;
             }
         }
@@ -81,7 +120,7 @@ async function onStateCoordinatorIntercept(chat) {
     for (let state of statesToRemove) {
         currentStates.delete(state);
         if (state === 'CustomState') {
-            customState = ''; // Clear custom state
+            customStates[currentCharacterId] = ''; // Clear custom state for this character
         }
     }
 
@@ -96,7 +135,7 @@ async function onStateCoordinatorIntercept(chat) {
                     statePrompt += `${stateConfig.message_in}\n`;
                     statesToAdd.add(state);
                     stateChanged = true;
-                    console.log(`StateCoordinator: Character ${characterId} entered state ${state}`);
+                    console.log(`StateCoordinator: Character ${currentCharacterId} entered state ${state}`);
                 }
             }
         }
@@ -108,10 +147,10 @@ async function onStateCoordinatorIntercept(chat) {
         const match = latestUserMessage.match(customStateRegex);
         if (match && match[1]) {
             modifiedMessage = modifiedMessage.replace('customstate', '').replace(match[0], '');
-            customState = match[1].trim();
+            customStates[currentCharacterId] = match[1].trim();
             currentStates.add('CustomState');
             stateChanged = true;
-            console.log(`StateCoordinator: Character ${characterId} entered CustomState with custom prompt: ${customState}`);
+            console.log(`StateCoordinator: Character ${currentCharacterId} entered CustomState with custom prompt: ${customStates[currentCharacterId]}`);
         }
     }
 
@@ -119,9 +158,9 @@ async function onStateCoordinatorIntercept(chat) {
     if (latestUserMessage.includes('nocustomstate')) {
         modifiedMessage = modifiedMessage.replace('nocustomstate', '');
         currentStates.delete('CustomState');
-        customState = '';
+        customStates[currentCharacterId] = '';
         stateChanged = true;
-        console.log(`StateCoordinator: Character ${characterId} exited CustomState`);
+        console.log(`StateCoordinator: Character ${currentCharacterId} exited CustomState`);
     }
 
     // Add states marked for addition
@@ -131,16 +170,19 @@ async function onStateCoordinatorIntercept(chat) {
 
     // Update active states for the character
     if (currentStates.size > 0) {
-        activeStates[characterId] = currentStates;
+        activeStates.set(currentCharacterId, currentStates);
     } else {
-        delete activeStates[characterId];
+        activeStates.delete(currentCharacterId);
     }
+
+    // Save memory to settings
+    saveMemory();
 
     // Construct the final state prompt for all current states
     let finalStatePrompt = '';
     for (let state of currentStates) {
         if (state === 'CustomState') {
-            finalStatePrompt += `${customState}\n`;
+            finalStatePrompt += `${customStates[currentCharacterId]}\n`;
         } else {
             const stateConfig = states[state];
             finalStatePrompt += `${stateConfig.message_in}\n`;
@@ -159,6 +201,20 @@ async function onStateCoordinatorIntercept(chat) {
 
 // Load the states configuration on start
 loadStatesConfig();
+loadMemory(); // Load memory on start
 
 // Assign the interceptor function to be used
 window['StateCoordinator_Intercept'] = onStateCoordinatorIntercept;
+
+// Listener for chat selection change
+eventSource.on(event_types.CHAT_CHANGED, (newCharacterId) => {
+    currentCharacterId = newCharacterId;
+    console.log(`StateCoordinator: Chat selected for character ${currentCharacterId}`);
+    updateSystemPromptForCharacter(currentCharacterId);
+});
+
+// Add a listener to window unload to save memory before the user leaves the page
+window.addEventListener('beforeunload', () => {
+    saveMemory();
+    console.log('StateCoordinator: Memory saved on unload');
+});
