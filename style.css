@@ -1,0 +1,25 @@
+.statecoordinator_settings .state-checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.statecoordinator_settings .custom-state-container {
+    margin-top: 15px;
+}
+
+.statecoordinator_settings .checkbox_label {
+    margin-right: 10px;
+}
+
+.statecoordinator_settings .inline-drawer-toggle {
+    cursor: pointer;
+}
+
+.statecoordinator_settings .inline-drawer-content {
+    display: none;
+}
+
+.statecoordinator_settings .inline-drawer-open .inline-drawer-content {
+    display: block;
+}

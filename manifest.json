@@ -1,13 +1,12 @@
 {
   "display_name": "StateCoordinator",
-  "loading_order": 1,
+  "loading_order": 50,
   "requires": [],
-  "optional": [],
   "js": "index.js",
-  "css": "",
-  "author": "Your Name",
-  "version": "0.0.1",
-  "homePage": "https://github.com/yourusername/StateCoordinator",
+  "css": "style.css",
+  "author": "YourName",
   "generate_interceptor": "StateCoordinator_Intercept",
+  "version": "1.0.0",
+  "homePage": "https://github.com/YourRepo/StateCoordinator",
   "auto_update": true
 }
