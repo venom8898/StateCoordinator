@@ -205,25 +205,24 @@ async function onStateCoordinatorIntercept(chat) {
 // Function to update the settings UI based on the current character's states
 function updateSettingsUI() {
     const characterNameElement = document.getElementById("currentCharacterName");
+    const stateCoordinatorBody = document.getElementById("stateCoordinatorBody");
     const statesCheckboxesElement = document.getElementById("statesCheckboxes");
     const customStateCheckbox = document.getElementById("customStateCheckbox");
     const customStateText = document.getElementById("customStateText");
 
-    if (!characterNameElement || !statesCheckboxesElement || !customStateCheckbox || !customStateText) {
+    if (!characterNameElement || !stateCoordinatorBody || !statesCheckboxesElement || !customStateCheckbox || !customStateText) {
         console.error("StateCoordinator: Failed to initialize settings elements.");
         return;
     }
 
     if (!currentCharacterId) {
         characterNameElement.innerText = "States for: No Character Selected";
-        statesCheckboxesElement.innerHTML = "";
-        customStateCheckbox.checked = false;
-        customStateText.value = "";
-        customStateText.disabled = true;
+        stateCoordinatorBody.style.display = "none";
         return;
     }
 
     characterNameElement.innerText = `States for: ${currentCharacterId}`;
+    stateCoordinatorBody.style.display = "block";
     statesCheckboxesElement.innerHTML = "";
 
     const currentStates = activeStates.get(currentCharacterId) || new Set();
@@ -308,6 +307,13 @@ fetch('scripts/extensions/third-party/StateCoordinator/settings.html')
     .then(settingsHtml => {
         $("#extensions_settings").append(settingsHtml);
         setupSettings();
+
+        // Add event listener to toggle the dropdown
+        $(`[data-extension-setting="StateCoordinator"]`).on('click', function () {
+            const content = $(this).next('.inline-drawer-content');
+            content.toggleClass('hidden');
+            $(this).find('.inline-drawer-toggle i').toggleClass('fa-chevron-right fa-chevron-down');
+        });
     });
 
 function setupSettings() {

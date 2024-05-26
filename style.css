@@ -23,3 +23,7 @@
 .statecoordinator_settings .inline-drawer-open .inline-drawer-content {
     display: block;
 }
+
+#stateCoordinatorBody {
+    display: none;
+}
