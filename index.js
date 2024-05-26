@@ -257,15 +257,12 @@ function updateSettingsUI() {
 
     customStateCheckbox.checked = currentStates.has('CustomState');
     customStateText.value = customStates[currentCharacterName] || '';
-    customStateText.disabled = !customStateCheckbox.checked;
 
     customStateCheckbox.addEventListener('change', () => {
         if (customStateCheckbox.checked) {
             currentStates.add('CustomState');
-            customStateText.disabled = false;
         } else {
             currentStates.delete('CustomState');
-            customStateText.disabled = true;
         }
         activeStates.set(currentCharacterName, currentStates);
         saveMemory();
