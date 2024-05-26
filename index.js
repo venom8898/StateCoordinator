@@ -197,6 +197,88 @@ async function onStateCoordinatorIntercept(chat) {
 
     console.log('StateCoordinator intercepted message:', modifiedMessage);
     console.log("StateCoordinator: Active States", activeStates);
+
+    // Update the settings UI whenever states change
+    updateSettingsUI();
+}
+
+// Function to update the settings UI based on the current character's states
+function updateSettingsUI() {
+    const characterNameElement = document.getElementById("currentCharacterName");
+    const statesCheckboxesElement = document.getElementById("statesCheckboxes");
+    const customStateCheckbox = document.getElementById("customStateCheckbox");
+    const customStateText = document.getElementById("customStateText");
+
+    if (!characterNameElement || !statesCheckboxesElement || !customStateCheckbox || !customStateText) {
+        console.error("StateCoordinator: Failed to initialize settings elements.");
+        return;
+    }
+
+    if (!currentCharacterId) {
+        characterNameElement.innerText = "States for: No Character Selected";
+        statesCheckboxesElement.innerHTML = "";
+        customStateCheckbox.checked = false;
+        customStateText.value = "";
+        customStateText.disabled = true;
+        return;
+    }
+
+    characterNameElement.innerText = `States for: ${currentCharacterId}`;
+    statesCheckboxesElement.innerHTML = "";
+
+    const currentStates = activeStates.get(currentCharacterId) || new Set();
+    for (let state in states) {
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = state;
+        checkbox.checked = currentStates.has(state);
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                currentStates.add(state);
+            } else {
+                currentStates.delete(state);
+            }
+            activeStates.set(currentCharacterId, currentStates);
+            saveMemory();
+            updateSystemPromptForCharacter(currentCharacterId);
+            updateSettingsUI(); // Update UI immediately after state change
+        });
+
+        const label = document.createElement("label");
+        label.htmlFor = state;
+        label.innerText = state;
+
+        const container = document.createElement("div");
+        container.className = "state-checkbox-container";
+        container.appendChild(checkbox);
+        container.appendChild(label);
+
+        statesCheckboxesElement.appendChild(container);
+    }
+
+    customStateCheckbox.checked = currentStates.has('CustomState');
+    customStateText.value = customStates[currentCharacterId] || '';
+    customStateText.disabled = !customStateCheckbox.checked;
+
+    customStateCheckbox.addEventListener('change', () => {
+        if (customStateCheckbox.checked) {
+            currentStates.add('CustomState');
+            customStateText.disabled = false;
+        } else {
+            currentStates.delete('CustomState');
+            customStateText.disabled = true;
+        }
+        activeStates.set(currentCharacterId, currentStates);
+        saveMemory();
+        updateSystemPromptForCharacter(currentCharacterId);
+        updateSettingsUI(); // Update UI immediately after state change
+    });
+
+    customStateText.addEventListener('input', (event) => {
+        customStates[currentCharacterId] = event.target.value.trim();
+        saveMemory();
+        updateSystemPromptForCharacter(currentCharacterId);
+    });
 }
 
 // Load the states configuration on start
@@ -210,7 +292,8 @@ window['StateCoordinator_Intercept'] = onStateCoordinatorIntercept;
 eventSource.on(event_types.CHAT_CHANGED, (newCharacterId) => {
     currentCharacterId = newCharacterId;
     console.log(`StateCoordinator: Chat selected for character ${currentCharacterId}`);
-    updateSystemPromptForCharacter(currentCharacterId);
+    updateSystemPromptForCharacter(newCharacterId);
+    updateSettingsUI(); // Ensure settings UI updates when the character changes
 });
 
 // Add a listener to window unload to save memory before the user leaves the page
@@ -228,88 +311,6 @@ fetch('scripts/extensions/third-party/StateCoordinator/settings.html')
     });
 
 function setupSettings() {
-    const characterNameElement = document.getElementById("currentCharacterName");
-    const statesCheckboxesElement = document.getElementById("statesCheckboxes");
-    const customStateCheckbox = document.getElementById("customStateCheckbox");
-    const customStateText = document.getElementById("customStateText");
-
-    if (!characterNameElement || !statesCheckboxesElement || !customStateCheckbox || !customStateText) {
-        console.error("StateCoordinator: Failed to initialize settings elements.");
-        return;
-    }
-
-    // Function to update the settings UI based on the current character's states
-    function updateSettingsUI() {
-        if (!currentCharacterId) {
-            characterNameElement.innerText = "States for: No Character Selected";
-            statesCheckboxesElement.innerHTML = "";
-            customStateCheckbox.checked = false;
-            customStateText.value = "";
-            customStateText.disabled = true;
-            return;
-        }
-
-        characterNameElement.innerText = `States for: ${currentCharacterId}`;
-        statesCheckboxesElement.innerHTML = "";
-
-        const currentStates = activeStates.get(currentCharacterId) || new Set();
-        for (let state in states) {
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.id = state;
-            checkbox.checked = currentStates.has(state);
-            checkbox.addEventListener('change', () => {
-                if (checkbox.checked) {
-                    currentStates.add(state);
-                } else {
-                    currentStates.delete(state);
-                }
-                activeStates.set(currentCharacterId, currentStates);
-                saveMemory();
-                updateSystemPromptForCharacter(currentCharacterId);
-            });
-
-            const label = document.createElement("label");
-            label.htmlFor = state;
-            label.innerText = state;
-
-            const container = document.createElement("div");
-            container.className = "state-checkbox-container";
-            container.appendChild(checkbox);
-            container.appendChild(label);
-
-            statesCheckboxesElement.appendChild(container);
-        }
-
-        customStateCheckbox.checked = currentStates.has('CustomState');
-        customStateText.value = customStates[currentCharacterId] || '';
-        customStateText.disabled = !customStateCheckbox.checked;
-
-        customStateCheckbox.addEventListener('change', () => {
-            if (customStateCheckbox.checked) {
-                currentStates.add('CustomState');
-                customStateText.disabled = false;
-            } else {
-                currentStates.delete('CustomState');
-                customStateText.disabled = true;
-            }
-            activeStates.set(currentCharacterId, currentStates);
-            saveMemory();
-            updateSystemPromptForCharacter(currentCharacterId);
-        });
-
-        customStateText.addEventListener('input', (event) => {
-            customStates[currentCharacterId] = event.target.value.trim();
-            saveMemory();
-            updateSystemPromptForCharacter(currentCharacterId);
-        });
-    }
-
-    // Update settings UI when character changes
-    eventSource.on(event_types.CHAT_CHANGED, () => {
-        updateSettingsUI();
-    });
-
     // Initial update of the settings UI
     updateSettingsUI();
 }
