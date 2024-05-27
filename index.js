@@ -49,10 +49,10 @@ function saveMemory() {
     console.log("StateCoordinator: Saved memory", memoryData);
 }
 
-// Update the system prompt with the current states for the selected character
-function updateSystemPromptForCharacter(characterName) {
-    let currentStates = activeStates.get(characterName) || new Set();
-    let finalStatePrompt = '';
+// Function to construct and set the final state prompt
+function setFinalStatePrompt(characterName, extraPrompt = '') {
+    const currentStates = activeStates.get(characterName) || new Set();
+    let finalStatePrompt = extraPrompt;
 
     for (let state of currentStates) {
         if (state === 'CustomState') {
@@ -63,12 +63,14 @@ function updateSystemPromptForCharacter(characterName) {
         }
     }
 
-    if (finalStatePrompt.trim()) {
-        console.log(`StateCoordinator: Injected system prompt: \n${finalStatePrompt.trim()}`);
-        setExtensionPrompt(extensionPromptMarker, finalStatePrompt.trim(), extensionPromptPosition, extensionPromptDepth, false, extensionPromptRole);
-    }
-
+    console.log(`StateCoordinator: Injected system prompt: \n${finalStatePrompt.trim()}`);
+    setExtensionPrompt(extensionPromptMarker, finalStatePrompt.trim(), extensionPromptPosition, extensionPromptDepth, false, extensionPromptRole);
     console.log(`StateCoordinator: Current states for character ${characterName}:`, Array.from(currentStates));
+}
+
+// Update the system prompt with the current states for the selected character
+function updateSystemPromptForCharacter(characterName) {
+    setFinalStatePrompt(characterName);
 }
 
 async function onStateCoordinatorIntercept(chat) {
@@ -105,9 +107,7 @@ async function onStateCoordinatorIntercept(chat) {
         for (let keyword of keywordsOut) {
             if (latestUserMessage.includes(keyword)) {
                 modifiedMessage = modifiedMessage.replace(keyword, '');
-                if (state !== 'CustomState') {
-                    statePrompt += `${stateConfig.message_out}\n`;
-                }
+                statePrompt += `${stateConfig.message_out}\n`;
                 statesToRemove.add(state);
                 stateChanged = true;
                 console.log(`StateCoordinator: Character ${currentCharacterName} exited state ${state}`);
@@ -178,22 +178,8 @@ async function onStateCoordinatorIntercept(chat) {
     // Save memory to settings
     saveMemory();
 
-    // Construct the final state prompt for all current states
-    let finalStatePrompt = '';
-    for (let state of currentStates) {
-        if (state === 'CustomState') {
-            finalStatePrompt += `${customStates[currentCharacterName]}\n`;
-        } else {
-            const stateConfig = states[state];
-            finalStatePrompt += `${stateConfig.message_in}\n`;
-        }
-    }
-
-    // Always update the system prompt with the current states
-    if (finalStatePrompt.trim() || stateChanged) {
-        console.log(`StateCoordinator: Injected system prompt: \n${finalStatePrompt.trim()}`);
-        setExtensionPrompt(extensionPromptMarker, finalStatePrompt.trim(), extensionPromptPosition, extensionPromptDepth, false, extensionPromptRole);
-    }
+    // Set the final state prompt with the current states
+    setFinalStatePrompt(currentCharacterName, statePrompt);
 
     console.log('StateCoordinator intercepted message:', modifiedMessage);
     console.log("StateCoordinator: Active States", activeStates);
@@ -226,6 +212,8 @@ function updateSettingsUI() {
     statesCheckboxesElement.innerHTML = "";
 
     const currentStates = activeStates.get(currentCharacterName) || new Set();
+    let statePrompt = '';
+
     for (let state in states) {
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -234,12 +222,16 @@ function updateSettingsUI() {
         checkbox.addEventListener('change', () => {
             if (checkbox.checked) {
                 currentStates.add(state);
+                statePrompt += `${states[state].message_in}\n`;
+                console.log(`StateCoordinator: Character ${currentCharacterName} entered state ${state}`);
             } else {
                 currentStates.delete(state);
+                statePrompt += `${states[state].message_out}\n`;
+                console.log(`StateCoordinator: Character ${currentCharacterName} exited state ${state}`);
             }
             activeStates.set(currentCharacterName, currentStates);
             saveMemory();
-            updateSystemPromptForCharacter(currentCharacterName);
+            setFinalStatePrompt(currentCharacterName, statePrompt); // Update system prompt after state change
             updateSettingsUI(); // Update UI immediately after state change
         });
 
@@ -261,19 +253,23 @@ function updateSettingsUI() {
     customStateCheckbox.addEventListener('change', () => {
         if (customStateCheckbox.checked) {
             currentStates.add('CustomState');
+            statePrompt += `${customStates[currentCharacterName]}\n`;
+            console.log(`StateCoordinator: Character ${currentCharacterName} entered CustomState`);
         } else {
             currentStates.delete('CustomState');
+            statePrompt += `${customStates[currentCharacterName]}\n`;
+            console.log(`StateCoordinator: Character ${currentCharacterName} exited CustomState`);
         }
         activeStates.set(currentCharacterName, currentStates);
         saveMemory();
-        updateSystemPromptForCharacter(currentCharacterName);
+        setFinalStatePrompt(currentCharacterName, statePrompt); // Update system prompt after state change
         updateSettingsUI(); // Update UI immediately after state change
     });
 
     customStateText.addEventListener('input', (event) => {
         customStates[currentCharacterName] = event.target.value.trim();
         saveMemory();
-        updateSystemPromptForCharacter(currentCharacterName);
+        setFinalStatePrompt(currentCharacterName); // Update system prompt after custom state change
     });
 }
 
@@ -291,7 +287,7 @@ eventSource.on(event_types.CHAT_CHANGED, () => {
     const character = context.characters[characterId];
     currentCharacterName = character.name;
     console.log(`StateCoordinator: Chat selected for character ${currentCharacterName}`);
-    updateSystemPromptForCharacter(currentCharacterName);
+    setFinalStatePrompt(currentCharacterName);
     updateSettingsUI(); // Ensure settings UI updates when the character changes
 });
 
