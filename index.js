@@ -1,6 +1,5 @@
-import { setExtensionPrompt, extension_prompt_types, extension_prompt_roles, eventSource, event_types } from "../../../../script.js";
+import { setExtensionPrompt, extension_prompt_types, extension_prompt_roles, eventSource, event_types, saveSettingsDebounced } from "../../../../script.js";
 import { getContext, extension_settings } from "../../../extensions.js";
-import { saveSettingsDebounced } from "../../../../script.js";
 
 const extensionName = "StateCoordinator";
 const extensionPromptMarker = '___StateCoordinator___';
@@ -14,6 +13,9 @@ let states = {};
 let activeStates = new Map(); // To store states for each character
 let customStates = {}; // To store custom states per character
 let currentCharacterName = null; // To store the currently selected character name
+
+//variables for handling checkbox exiting
+let statesExited = new Set();
 
 // Load the states configuration
 async function loadStatesConfig() {
@@ -68,11 +70,6 @@ function setFinalStatePrompt(characterName, extraPrompt = '') {
     console.log(`StateCoordinator: Current states for character ${characterName}:`, Array.from(currentStates));
 }
 
-// Update the system prompt with the current states for the selected character
-function updateSystemPromptForCharacter(characterName) {
-    setFinalStatePrompt(characterName);
-}
-
 async function onStateCoordinatorIntercept(chat) {
     if (!currentCharacterName) {
         console.log('StateCoordinator: No valid character name found.');
@@ -97,8 +94,11 @@ async function onStateCoordinatorIntercept(chat) {
     let modifiedMessage = latestUserMessage;
     let stateChanged = false;
     let statePrompt = '';
-    let statesToRemove = new Set();
+    let statesToRemove = statesExited;
     let statesToAdd = new Set();
+
+    console.log(`StateCoordinator: states:`, states);
+    console.log(`StateCoordinator: states to remove:`, statesToRemove);
 
     // Check if the character is currently in any states and should be taken out
     for (let state of currentStates) {
@@ -106,6 +106,8 @@ async function onStateCoordinatorIntercept(chat) {
         const keywordsOut = stateConfig ? stateConfig.keywords_out : [];
         for (let keyword of keywordsOut) {
             if (latestUserMessage.includes(keyword)) {
+                console.log(`StateCoordinator: state:`, state);
+                console.log(`StateCoordinator: statConfig:`, stateConfig);
                 modifiedMessage = modifiedMessage.replace(keyword, '');
                 statePrompt += `${stateConfig.message_out}\n`;
                 statesToRemove.add(state);
@@ -115,6 +117,8 @@ async function onStateCoordinatorIntercept(chat) {
             }
         }
     }
+    console.log(`StateCoordinator: states exited:`, statesExited);
+    console.log(`StateCoordinator: states to remove:`, statesToRemove);
 
     // Remove states marked for removal
     for (let state of statesToRemove) {
@@ -132,7 +136,6 @@ async function onStateCoordinatorIntercept(chat) {
             if (latestUserMessage.includes(keyword)) {
                 modifiedMessage = modifiedMessage.replace(keyword, '');
                 if (!currentStates.has(state) && !statesToRemove.has(state)) {
-                    statePrompt += `${stateConfig.message_in}\n`;
                     statesToAdd.add(state);
                     stateChanged = true;
                     console.log(`StateCoordinator: Character ${currentCharacterName} entered state ${state}`);
@@ -186,6 +189,9 @@ async function onStateCoordinatorIntercept(chat) {
 
     // Update the settings UI whenever states change
     updateSettingsUI();
+
+    //clear states exited
+    statesExited.clear();
 }
 
 // Function to update the settings UI based on the current character's states
@@ -228,10 +234,10 @@ function updateSettingsUI() {
                 currentStates.delete(state);
                 statePrompt += `${states[state].message_out}\n`;
                 console.log(`StateCoordinator: Character ${currentCharacterName} exited state ${state}`);
+                statesExited.add(state);
             }
             activeStates.set(currentCharacterName, currentStates);
             saveMemory();
-            setFinalStatePrompt(currentCharacterName, statePrompt); // Update system prompt after state change
             updateSettingsUI(); // Update UI immediately after state change
         });
 
@@ -262,14 +268,12 @@ function updateSettingsUI() {
         }
         activeStates.set(currentCharacterName, currentStates);
         saveMemory();
-        setFinalStatePrompt(currentCharacterName, statePrompt); // Update system prompt after state change
         updateSettingsUI(); // Update UI immediately after state change
     });
 
     customStateText.addEventListener('input', (event) => {
         customStates[currentCharacterName] = event.target.value.trim();
         saveMemory();
-        setFinalStatePrompt(currentCharacterName); // Update system prompt after custom state change
     });
 }
 
@@ -287,7 +291,6 @@ eventSource.on(event_types.CHAT_CHANGED, () => {
     const character = context.characters[characterId];
     currentCharacterName = character.name;
     console.log(`StateCoordinator: Chat selected for character ${currentCharacterName}`);
-    setFinalStatePrompt(currentCharacterName);
     updateSettingsUI(); // Ensure settings UI updates when the character changes
 });
 
