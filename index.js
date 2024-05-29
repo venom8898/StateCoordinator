@@ -5,7 +5,7 @@ const extensionName = "StateCoordinator";
 const extensionPromptMarker = '___StateCoordinator___';
 const extensionPromptRole = extension_prompt_roles.SYSTEM;
 const extensionPromptPosition = extension_prompt_types.BEFORE_PROMPT;
-const extensionPromptDepth = 1;
+const extensionPromptDepth = 0;
 
 console.log('StateCoordinator: Launched');
 
@@ -97,17 +97,12 @@ async function onStateCoordinatorIntercept(chat) {
     let statesToRemove = statesExited;
     let statesToAdd = new Set();
 
-    console.log(`StateCoordinator: states:`, states);
-    console.log(`StateCoordinator: states to remove:`, statesToRemove);
-
     // Check if the character is currently in any states and should be taken out
     for (let state of currentStates) {
         const stateConfig = states[state];
         const keywordsOut = stateConfig ? stateConfig.keywords_out : [];
         for (let keyword of keywordsOut) {
             if (latestUserMessage.includes(keyword)) {
-                console.log(`StateCoordinator: state:`, state);
-                console.log(`StateCoordinator: statConfig:`, stateConfig);
                 modifiedMessage = modifiedMessage.replace(keyword, '');
                 statePrompt += `${stateConfig.message_out}\n`;
                 statesToRemove.add(state);
@@ -117,8 +112,6 @@ async function onStateCoordinatorIntercept(chat) {
             }
         }
     }
-    console.log(`StateCoordinator: states exited:`, statesExited);
-    console.log(`StateCoordinator: states to remove:`, statesToRemove);
 
     // Remove states marked for removal
     for (let state of statesToRemove) {
@@ -185,7 +178,6 @@ async function onStateCoordinatorIntercept(chat) {
     setFinalStatePrompt(currentCharacterName, statePrompt);
 
     console.log('StateCoordinator intercepted message:', modifiedMessage);
-    console.log("StateCoordinator: Active States", activeStates);
 
     // Update the settings UI whenever states change
     updateSettingsUI();
