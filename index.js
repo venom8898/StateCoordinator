@@ -1,5 +1,6 @@
 import { setExtensionPrompt, extension_prompt_types, extension_prompt_roles, eventSource, event_types, saveSettingsDebounced } from "../../../../script.js";
 import { getContext, extension_settings } from "../../../extensions.js";
+import { getInstructStoppingSequences } from "../../../../scripts/instruct-mode.js";
 
 const extensionName = "StateCoordinator";
 const extensionPromptMarker = '___StateCoordinator___';
@@ -16,6 +17,14 @@ let currentCharacterName = null; // To store the currently selected character na
 
 //variables for handling checkbox exiting
 let statesExited = new Set();
+
+// Function to get the instruct sequence from textgen settings
+function getInstructSequence() {
+    const instructSequences = getInstructStoppingSequences(); // Use formatInstructModeSystemPrompt to get the instruct sequence
+    const instructSequence = instructSequences[0].concat(" ");
+    console.log(`StateCoordinator: Fetched instruct sequence: ${instructSequence}`);
+    return instructSequence;
+}
 
 // Load the states configuration
 async function loadStatesConfig() {
@@ -53,15 +62,16 @@ function saveMemory() {
 
 // Function to construct and set the final state prompt
 function setFinalStatePrompt(characterName, extraPrompt = '') {
+    const instructSequence = getInstructSequence();
     const currentStates = activeStates.get(characterName) || new Set();
     let finalStatePrompt = extraPrompt;
 
     for (let state of currentStates) {
         if (state === 'CustomState') {
-            finalStatePrompt += `${customStates[characterName]}\n`;
+            finalStatePrompt += `${instructSequence}${customStates[characterName]}\n`;
         } else {
             const stateConfig = states[state];
-            finalStatePrompt += `${stateConfig.message_in}\n`;
+            finalStatePrompt += `${instructSequence}${stateConfig.message_in}\n`;
         }
     }
 
@@ -210,6 +220,7 @@ function updateSettingsUI() {
     statesCheckboxesElement.innerHTML = "";
 
     const currentStates = activeStates.get(currentCharacterName) || new Set();
+    const instructSequence = getInstructSequence();
     let statePrompt = '';
 
     for (let state in states) {
@@ -220,11 +231,11 @@ function updateSettingsUI() {
         checkbox.addEventListener('change', () => {
             if (checkbox.checked) {
                 currentStates.add(state);
-                statePrompt += `${states[state].message_in}\n`;
+                statePrompt += `${instructSequence}${states[state].message_in}\n`;
                 console.log(`StateCoordinator: Character ${currentCharacterName} entered state ${state}`);
             } else {
                 currentStates.delete(state);
-                statePrompt += `${states[state].message_out}\n`;
+                statePrompt += `${instructSequence}${states[state].message_out}\n`;
                 console.log(`StateCoordinator: Character ${currentCharacterName} exited state ${state}`);
                 statesExited.add(state);
             }
@@ -251,11 +262,11 @@ function updateSettingsUI() {
     customStateCheckbox.addEventListener('change', () => {
         if (customStateCheckbox.checked) {
             currentStates.add('CustomState');
-            statePrompt += `${customStates[currentCharacterName]}\n`;
+            statePrompt += `${instructSequence}${customStates[currentCharacterName]}\n`;
             console.log(`StateCoordinator: Character ${currentCharacterName} entered CustomState`);
         } else {
             currentStates.delete('CustomState');
-            statePrompt += `${customStates[currentCharacterName]}\n`;
+            statePrompt += `${instructSequence}${customStates[currentCharacterName]}\n`;
             console.log(`StateCoordinator: Character ${currentCharacterName} exited CustomState`);
         }
         activeStates.set(currentCharacterName, currentStates);
