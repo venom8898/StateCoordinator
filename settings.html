@@ -1,67 +1,24 @@
 <div class="statecoordinator_settings">
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header">
-            <b><i class="fa-solid fa-layer-group"></i> State Coordinator</b>
+            <b>State Coordinator</b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
-            <p class="notes">Persistent, deterministic story state plus one-shot guidance. State is stored separately for each chat.</p>
-
-            <div class="sc-grid">
-                <label class="checkbox_label"><input type="checkbox" data-setting="enabled"> Enable prompt injection</label>
-                <label class="checkbox_label"><input type="checkbox" data-setting="consumeCommands"> Remove matched commands from messages</label>
-                <label class="checkbox_label"><input type="checkbox" data-setting="caseSensitive"> Case-sensitive commands</label>
-            </div>
-
-            <div class="sc-injection-grid">
-                <label>Injection role
-                    <select class="text_pole" data-setting="role">
-                        <option value="system">System</option>
-                        <option value="user">User</option>
-                        <option value="assistant">Assistant</option>
-                    </select>
-                </label>
-                <label>Position
-                    <select class="text_pole" data-setting="position">
-                        <option value="before_prompt">Before main prompt</option>
-                        <option value="in_chat">In chat at depth</option>
-                    </select>
-                </label>
-                <label>Depth
-                    <input class="text_pole" type="number" min="0" max="999" data-setting="depth">
-                </label>
-            </div>
-
-            <label>Prompt heading
-                <textarea class="text_pole" rows="2" data-setting="promptHeader"></textarea>
-            </label>
-
-            <hr>
-            <div class="sc-section-heading">
-                <div>
-                    <h4>Active state</h4>
-                    <small>Toggle saved states below or add free-form context for this chat.</small>
+            <div class="flex-container flexFlowColumn">
+                <div id="characterStatesHeader">
+                    <span id="currentCharacterName">No Character Selected</span>
                 </div>
-                <button id="sc-clear-active" type="button" class="menu_button"><i class="fa-solid fa-eraser"></i> Clear active</button>
-            </div>
-            <textarea id="sc-custom-state" class="text_pole" rows="3" placeholder="Custom continuity constraint for this chat…"></textarea>
-
-            <hr>
-            <div class="sc-section-heading">
-                <div>
-                    <h4>State definitions</h4>
-                    <small>Commands are detected in outgoing user messages. Example: <code>/injured</code>.</small>
+                <div id="stateCoordinatorBody">
+                    <div id="statesCheckboxes"></div>
+                    <div class="flex-container flexFlowColumn custom-state-container">
+                        <label class="checkbox_label" for="customStateCheckbox">
+                            <input type="checkbox" id="customStateCheckbox">
+                            Custom State
+                        </label>
+                        <textarea id="customStateText" class="text_pole textarea_compact autoSetHeight" rows="2" placeholder="Enter custom state..."></textarea>
+                    </div>
                 </div>
-                <button id="sc-add-state" type="button" class="menu_button"><i class="fa-solid fa-plus"></i> Add state</button>
-            </div>
-            <div id="sc-definition-list"></div>
-
-            <div class="sc-toolbar">
-                <button id="sc-export" type="button" class="menu_button"><i class="fa-solid fa-download"></i> Export</button>
-                <label class="menu_button sc-import">
-                    <i class="fa-solid fa-upload"></i> Import
-                    <input id="sc-import-file" type="file" accept="application/json,.json">
-                </label>
             </div>
         </div>
     </div>
