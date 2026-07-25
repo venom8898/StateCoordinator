@@ -1,5 +1,20 @@
 {
   "states": [
-
+    {
+      "id": "injured",
+      "name": "Injured",
+      "prompt": "The character is injured. Preserve the established injuries, pain, and physical limitations until recovery is explicitly established.",
+      "enter": ["/injured"],
+      "exit": ["/recovered"],
+      "enabled": true
+    },
+    {
+      "id": "asleep",
+      "name": "Asleep",
+      "prompt": "The character is asleep and cannot knowingly react to events they have not perceived.",
+      "enter": ["/asleep"],
+      "exit": ["/awake"],
+      "enabled": true
+    }
   ]
 }
