@@ -9,7 +9,7 @@
   "author": "DJ Quintana",
   "description": "Coordinates persistent character states through configurable transition keywords and prompt injection.",
   "generate_interceptor": "StateCoordinator_Intercept",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "manifest_version": 3,
   "homePage": "https://github.com/venom8898/StateCoordinator",
   "auto_update": true

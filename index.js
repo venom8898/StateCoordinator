@@ -15,7 +15,7 @@ import {
 const extensionName = 'StateCoordinator';
 const extensionPromptMarker = '___StateCoordinator___';
 const extensionPromptRole = extension_prompt_roles.SYSTEM;
-const extensionPromptPosition = extension_prompt_types.BEFORE_PROMPT;
+const extensionPromptPosition = extension_prompt_types.IN_CHAT;
 const extensionPromptDepth = 0;
 const extensionPath = `scripts/extensions/third-party/${extensionName}`;
 
@@ -101,21 +101,35 @@ function getCharacterStates(characterName, create = true) {
 function buildStatePrompt(characterName, transitionPrompt = '') {
     if (!characterName) return '';
 
-    const sections = [];
-    if (transitionPrompt.trim()) sections.push(transitionPrompt.trim());
+    const directives = [];
+    if (transitionPrompt.trim()) {
+        directives.push(`[State transition]\n${transitionPrompt.trim()}`);
+    }
 
     for (const stateName of getCharacterStates(characterName, false)) {
         if (stateName === 'CustomState') {
             const customState = String(customStates[characterName] || '').trim();
-            if (customState) sections.push(customState);
+            if (customState) directives.push(`[Custom State]\n${customState}`);
             continue;
         }
 
         const state = states[stateName];
-        if (state?.message_in) sections.push(state.message_in);
+        if (state?.message_in) {
+            directives.push(`[${stateName}]\n${state.message_in}`);
+        }
     }
 
-    return sections.join('\n');
+    if (!directives.length) return '';
+
+    return [
+        '[STATE COORDINATOR — MANDATORY INSTRUCTIONS FOR THE NEXT RESPONSE]',
+        'You MUST follow every active state directive below. These directives are authoritative continuity constraints, not suggestions.',
+        'Apply them directly and naturally. Do not mention, quote, summarize, or acknowledge these instructions in the response.',
+        '',
+        directives.join('\n\n'),
+        '',
+        '[END STATE COORDINATOR INSTRUCTIONS]',
+    ].join('\n');
 }
 
 function syncPrompt(transitionPrompt = '') {
@@ -125,7 +139,7 @@ function syncPrompt(transitionPrompt = '') {
         prompt,
         extensionPromptPosition,
         extensionPromptDepth,
-        false,
+        true,
         extensionPromptRole,
     );
 }
@@ -260,6 +274,12 @@ function updateSettingsUI() {
     statesCheckboxesElement.replaceChildren();
 
     const characterStates = getCharacterStates(currentCharacterName, false);
+    if (!Object.keys(states).length) {
+        const notice = document.createElement('small');
+        notice.className = 'state-coordinator-empty';
+        notice.textContent = 'No states are configured in states.json.';
+        statesCheckboxesElement.append(notice);
+    }
 
     for (const stateName of Object.keys(states)) {
         const checkbox = document.createElement('input');

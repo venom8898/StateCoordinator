@@ -24,6 +24,12 @@
     margin-right: 10px;
 }
 
+.statecoordinator_settings .state-coordinator-empty {
+    display: block;
+    margin-bottom: 10px;
+    opacity: 0.7;
+}
+
 #stateCoordinatorBody {
     display: none;
 }
